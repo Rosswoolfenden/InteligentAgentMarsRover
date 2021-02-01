@@ -1,0 +1,287 @@
+
+PLAN : {
+    NAME: "Find Water"
+    GOAL: 
+        ACHIEVE find_water;
+    CONTEXT:
+        RETRIEVE Pos $X $Y;      
+    BODY :
+        QUERY how_many_rocks;
+        RETRIEVE complete_search $done;
+        WHILE : TEST (== $done "false") {
+            RETRIEVE Pos $X $Y;
+           
+            ASSIGN $x1 0;
+            RETRIEVE x_direciton $dir;
+ 
+            WHILE : TEST (<= $x1 7) {
+                UPDATE(found_water)(found_water "false");
+                PERFORM check_for_rocks;
+                RETRIEVE found_water $water_found;
+                WHEN : TEST (&& (== $dir 1)(== $water_found "false")){
+                    PERFORM move_x;
+                    ASSIGN $x1 ( + $x1 1);
+                };
+                WHEN : TEST (&& (== $dir 0)(== $water_found "false")){ 
+                    PERFORM move_x_back;
+                    ASSIGN $x1 ( + $x1 1);
+                };
+                WHEN : TEST (== $water_found "true"){
+                    PERFORM move_rover_home;
+                    RETRIEVE Pos $X $Y;
+                    EXECUTE println "we returned to base 0,0 with the rock! Restarting search";
+                    PERFORM return_to_last_pos;
+                    
+                };
+            };
+            PERFORM move_y;
+
+            
+            
+            RETRIEVE Pos $X $Y;
+            WHEN : TEST (== $Y 7) {
+                ASSIGN $done "true";
+            };
+        };
+
+    FAILURE:
+        EXECUTE println "Faield to complete search for water";
+        
+}
+PLAN: {
+    NAME: "Check number of rocks"
+    GOAL:
+        QUERY how_many_rocks;
+    BODY:
+        RETRIEVE fail $fail;
+        RETRIEVEALL $rock rock $water $posX $posY;
+        ASSIGN $count 0;
+        WHILE : TEST (== $fail "false") {
+            RETRIEVE fail $new_failed;
+            ASSIGN $fail $new_failed;
+            NEXTFACT $rock rock $water $posX $posY;
+            ASSIGN $count ( + $count 1);
+            UPDATE(num_of_rocks)(num_of_rocks $count);
+        };
+        
+        
+    FAILURE:
+        ASSIGN $fail "true";
+        UPDATE (fail)(fail $fail);
+        EXECUTE println "FOUND HOW MANY ROCKS " $fail;
+}
+
+
+PLAN: {
+    NAME: "check rock exists on current location"
+    GOAL: 
+        PERFORM check_for_rocks;
+    BODY:
+        UPDATE(fail)(fail "false");
+        RETRIEVE fail $rock_fail;
+        RETRIEVEALL $rock rock $water $posX $posY;
+        RETRIEVE num_of_rocks $num;
+        RETRIEVE found_water $found;
+        RETRIEVE Pos $X $Y;
+        EXECUTE println "Pos X: " $X " Y: " $Y;
+        ASSIGN $i 0;
+        WHILE : TEST (< $i $num) {
+            NEXTFACT $rock rock $water $posX $posY;
+            WHEN : TEST (&& (== $posX $X )(== $posY $Y) (== $water "true")) {
+                EXECUTE println "Rock found at " $X "/" $Y " Rock contains water taking home";
+                ASSIGN $rock_exists "true";
+                UPDATE(found_water)(found_water $rock_exists);
+                RETRACT rock $water $posX $posY;
+                ASSIGN $cur_num ( - $num  1 );
+                UPDATE (num_of_rocks)(num_of_rocks $cur_num);
+            };
+            WHEN : TEST (&& (== $posX $X )(== $posY $Y) (== $water "false")) {
+                EXECUTE println "Rock found at " $X "/" $Y " No water one rock, removing rock";
+                RETRACT rock $water $posX $posY;
+                ASSIGN $cur_num ( - $num  1 );
+                UPDATE (num_of_rocks)(num_of_rocks $cur_num);
+            }; 
+            ASSIGN $i (+ $i 1);
+        };
+
+    FAILURE:
+        EXECUTE println "Failed to check location for rocks";
+}
+
+PLAN: {
+    NAME: "Move X"
+    GOAL:
+        PERFORM move_x;
+
+    CONTEXT:
+        RETRIEVE Pos $X $Y;
+    BODY:
+        ASSIGN $x1 $X;
+        RETRIEVE x_direciton $dir;
+        
+        ASSIGN $x1 (+ $x1 1);
+        WHEN : TEST (!= $x1 8) {
+            UPDATE(Pos)(Pos $x1 $Y);
+        };
+        
+        
+        WHEN : TEST ( == $x1 7) {
+            ASSIGN $dir 0;
+            UPDATE(x_direciton)(x_direciton $dir);
+        };
+    FAILURE:
+        EXECUTE println "Failed to move X";
+}
+
+PLAN: {
+    NAME: "Move X"
+    GOAL:
+        PERFORM move_x_back;
+
+    CONTEXT:
+        RETRIEVE Pos $X $Y;
+    BODY:
+        ASSIGN $x1 $X;
+        ASSIGN $x1 (- $x1 1);
+        WHEN : TEST (!= $x1 -1) {
+            UPDATE(Pos)(Pos $x1 $Y);
+        };
+        WHEN : TEST ( == $x1 0) {
+            ASSIGN $dir 1;
+            UPDATE(x_direciton)(x_direciton $dir);
+        };
+        
+    FAILURE:
+        EXECUTE println "Failed to move X";
+}
+
+PLAN: {
+    NAME: "Move Y"
+    GOAL:
+        PERFORM move_y;
+
+    CONTEXT:
+        RETRIEVE Pos $X $Y;
+    BODY:
+        ASSIGN $y1 $Y;
+        WHEN : TEST (< $y1 7) {
+            ASSIGN $y1 (+ $y1 1);
+            UPDATE(Pos)(Pos $X $y1);
+        };
+        
+    FAILURE:
+        EXECUTE println "Failed to move X";
+}
+
+PLAN: {
+    NAME: "Move Rover Home"
+    GOAL:
+        PERFORM move_rover_home;
+    BODY:
+        RETRIEVE last_pos $X $Y $dir;
+        RETRIEVE Pos $X $Y;
+        RETRIEVE x_direciton $dir;
+        EXECUTE println "Saving current Location"; 
+        UPDATE(last_pos)(last_pos $X $Y $dir);
+        PERFORM move_x_home;
+        PERFORM move_y_home;
+    FAILURE:
+        EXECUTE println "Failed to take rover home";
+}
+
+PLAN: {
+    NAME: "move x home"
+    GOAL:
+        PERFORM move_x_home;
+
+    CONTEXT:
+        RETRIEVE Pos $X $Y;
+    BODY:
+        ASSIGN $x1 $X;
+        WHILE : TEST (!= $x1 0) {
+            ASSIGN $x1 (- $x1 1); 
+            EXECUTE println "Pos X: "$x1 " Y: " $Y;
+            UPDATE(Pos)(Pos $x1 $Y);
+        };
+    FAILURE:
+        EXECUTE println "Failed to return X 0";
+
+}
+PLAN: {
+    NAME:  "move Y home"
+    GOAL:
+        PERFORM move_y_home;
+
+    CONTEXT:
+        RETRIEVE Pos $X $Y;
+    BODY:
+        ASSIGN $y1 $Y;
+        WHILE : TEST(!= $y1 0){
+            ASSIGN $y1 (- $y1 1);
+            EXECUTE println "Pos X: "$X " Y: " $y1;
+            UPDATE(Pos)(Pos $X $y1); 
+        };
+    FAILURE:
+        EXECUTE println "Failed to return Y 0";
+}
+
+PLAN: {
+    NAME:  "return to last pos"
+    GOAL:
+        PERFORM return_to_last_pos;
+    CONTEXT:
+        RETRIEVE last_pos $X $Y $dir;
+    BODY:
+        EXECUTE println "Returning back to previous position";
+        UPDATE(x_direciton)(x_direciton $dir);
+        PERFORM return_x_pos;
+        PERFORM return_y_pos;
+        EXECUTE println "Restarting search from previous postion";
+    FAILURE:
+        EXECUTE println "Failed to return to last position";
+        
+    
+}
+
+PLAN: {
+    NAME: "return to X pos"
+    GOAL:
+        PERFORM return_x_pos;
+    CONTEXT:
+          
+    BODY:
+        RETRIEVE last_pos $X $Y $dir; 
+        ASSIGN $x1 0;
+        ASSIGN $xL $X;
+        RETRIEVE Pos $oX $oY;
+        EXECUTE println "we 0 is  " $oX " Y: " $oY;
+        WHILE : TEST(!= $x1 $xL){
+            ASSIGN $x1(+ $x1 1);
+            EXECUTE println "Pos X: "$x1 " Y: " $oY;
+            UPDATE(Pos)(Pos $x1 $oY);
+
+        };
+
+    FAILURE:
+        EXECUTE println "Failed to return to last X position";
+}
+
+PLAN: {
+    NAME: "return to Y pos"
+    GOAL:
+        PERFORM return_y_pos;  
+        
+    BODY: 
+        RETRIEVE last_pos $X $Y $dir; 
+        RETRIEVE Pos $oX $oY;
+        ASSIGN $y1 0;
+        ASSIGN $yL $Y;
+        WHILE : TEST(!= $y1 $yL){
+            ASSIGN $y1 (+ $y1 1);
+            EXECUTE println "Pos X: "$oX " Y: " $y1;
+            UPDATE(Pos)(Pos $oX $y1); 
+        };
+    FAILURE:
+        EXECUTE println "Failed to return to last Y position";
+}
+

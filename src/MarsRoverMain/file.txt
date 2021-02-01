@@ -1,0 +1,8 @@
+GOALS:  
+    ACHIEVE find_water;
+FACTS:
+    FACT Pos 0 0;
+    FACT found_water "false";
+    FACT complete_search "false";
+    FACT fail "false";
+    FACT num_of_rocks 1;

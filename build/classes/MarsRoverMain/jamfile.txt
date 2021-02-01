@@ -1,0 +1,126 @@
+GOALS:  
+    ACHIEVE find_water;
+FACTS:
+    FACT Pos 0 0;
+    FACT rock "false" 2 6;
+    FACT rock "true" 3 2; 
+    FACT rock "false" 5 3;
+    FACT rock "false" 6 1;
+    FACT rock "true" 7 5;
+    FACT num_of_rocks 5;
+    FACT found_water "false";
+    FACT complete_search "false";
+    FACT fail "false";
+
+PLAN : {
+    NAME: "Find Water"
+    GOAL: 
+        ACHIEVE find_water;
+    CONTEXT:
+        RETRIEVE Pos $X $Y;      
+    BODY :
+        RETRIEVE complete_search $done;
+
+        WHILE : TEST (== $done "false") {
+            RETRIEVE Pos $X $Y;
+            ASSIGN $x1 $X;
+            WHILE : TEST (< $x1 8) {
+                PERFORM check_for_rocks;
+
+                PERFORM move_x;
+                ASSIGN $x1 ( + $x1 1);
+            };
+
+            PERFORM move_y;
+            RETRIEVE Pos $X $Y;
+            WHEN : TEST (== $Y 7) {
+                ASSIGN $done "true";
+            };
+        };
+
+    FAILURE:
+        EXECUTE println "Faield to complete search for water";
+        
+}
+
+PLAN: {
+    NAME: "Agent go home with rock"
+    GOAL:
+        PERFORM go_home;
+    BODY:
+        RETRIEVE Pos $X $Y;
+        EXECUTE println "The pos is " $X " "  $Y;
+
+}
+
+PLAN: {
+    NAME: "check rock exists on current location"
+    GOAL: 
+        PERFORM check_for_rocks;
+    BODY:
+        
+        UPDATE(fail)(fail "false");
+        RETRIEVE fail $rock_fail;
+        RETRIEVEALL $rock rock $water $posX $posY;
+        RETRIEVE num_of_rocks $num;
+        RETRIEVE found_water $found;
+        RETRIEVE Pos $X $Y;
+        ASSIGN $i 0;
+        WHILE : TEST (< $i $num) {
+            NEXTFACT $rock rock $water $posX $posY;
+            WHEN : TEST (&& (== $posX $X )(== $posY $Y) (== $water "true")) {
+                EXECUTE println "Rock found at " $X "/" $Y " Rock contains water taking home";
+                EXECUTE println "Water has been found x/y: "$X "/" $Y; 
+                ASSIGN $rock_exists "true";
+            };
+            WHEN : TEST (&& (== $posX $X )(== $posY $Y) (== $water "false")) {
+                EXECUTE println "Rock found at " $X "/" $Y " No water one rock, remove rock";
+                RETRACT rock $water $posX $posY;
+                ASSIGN $cur_num ( - $num  1 );
+                UPDATE (num_of_rocks)(num_of_rocks $cur_num);
+
+                
+            }; 
+            ASSIGN $i (+ $i 1);
+        };
+
+    FAILURE:
+        EXECUTE println "Failed to check location for rocks";
+}
+
+
+
+PLAN: {
+    NAME: "Move X"
+    GOAL:
+        PERFORM move_x;
+
+    CONTEXT:
+        RETRIEVE Pos $X $Y;
+    BODY:
+        ASSIGN $x1 $X;
+        WHEN : TEST (< $x1 8) {
+            ASSIGN $x1 (+ $x1 1);
+            UPDATE(Pos)(Pos $x1 $Y);
+        };
+    FAILURE:
+        EXECUTE println "Failed to move X";
+}
+
+PLAN: {
+    NAME: "Move Y"
+    GOAL:
+        PERFORM move_y;
+
+    CONTEXT:
+        RETRIEVE Pos $X $Y;
+    BODY:
+        ASSIGN $y1 $Y;
+        WHEN : TEST (< $y1 7) {
+            ASSIGN $y1 (+ $y1 1);
+            ASSIGN $x0 0;
+            UPDATE(Pos)(Pos $x0 $y1);
+        };
+    FAILURE:
+        EXECUTE println "Failed to move X";
+}
